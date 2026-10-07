@@ -1,5 +1,5 @@
 resource "aws_vpc" "main" {
-  cidr_block           = "10.20.0.0/16"
+  cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
 
@@ -12,7 +12,7 @@ resource "aws_vpc" "main" {
 
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.20.1.0/24"
+  cidr_block              = var.public_subnet_cidr
   availability_zone       = "${var.aws_region}a"
   map_public_ip_on_launch = true
 
@@ -38,7 +38,7 @@ resource "aws_route_table" "public" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id  = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.main.id
   }
 
   tags = {
@@ -84,6 +84,51 @@ resource "aws_security_group" "web" {
 
   tags = {
     Name      = "session19-mini-web-sg"
+    Session   = "19"
+    ManagedBy = "Terraform"
+  }
+}
+
+# latest Amazon Linux 2023 AMI in the region
+data "aws_ami" "al2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023*-x86_64"]
+  }
+}
+
+resource "aws_instance" "web" {
+  ami                    = data.aws_ami.al2023.id
+  instance_type          = var.instance_type
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.web.id]
+
+  user_data = <<-EOT
+    #!/bin/bash
+    dnf install -y httpd
+    echo "<h1>Hello from ${var.project} - EC2 created by Terraform</h1>" > /var/www/html/index.html
+    systemctl enable --now httpd
+  EOT
+
+  # the instance needs the IGW + route to be reachable, there is no direct reference to it
+  depends_on = [aws_route_table_association.public]
+
+  tags = {
+    Name      = "${var.project}-web"
+    Session   = "19"
+    ManagedBy = "Terraform"
+  }
+}
+
+resource "aws_s3_bucket" "app" {
+  bucket        = var.bucket_name
+  force_destroy = true
+
+  tags = {
+    Name      = var.bucket_name
     Session   = "19"
     ManagedBy = "Terraform"
   }

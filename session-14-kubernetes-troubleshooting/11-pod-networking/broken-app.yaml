@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: net-app
+  labels:
+    app: net-app
+spec:
+  containers:
+    - name: web
+      image: python:3.11-alpine3.19
+      # listens only on localhost, so other pods can't reach it
+      command: ["python3", "-m", "http.server", "8000", "--bind", "127.0.0.1"]
+      ports:
+        - containerPort: 8000

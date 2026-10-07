@@ -1,0 +1,10 @@
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "files that can't have real secrets"
+paths = [
+  '''app/static/''',
+]

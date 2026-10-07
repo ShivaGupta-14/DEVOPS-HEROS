@@ -21,3 +21,6 @@ override.tf.json
 .idea/
 .vscode/
 .DS_Store
+
+# no secrets in this one, needed for submission
+!terraform.tfvars

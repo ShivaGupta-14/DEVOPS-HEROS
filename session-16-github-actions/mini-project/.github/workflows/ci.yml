@@ -1,0 +1,114 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  # image name must be lowercase for ghcr
+  IMAGE_NAME: ghcr.io/shivagupta-14/calculator
+
+jobs:
+  # ---------- CI ----------
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  security-check:
+    name: Security Check
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Check for sensitive files
+        run: |
+          if find . -type f \( -name ".env" -o -name "*.pem" -o -name "*.key" \) | grep -q .; then
+            echo "Sensitive file found"
+            exit 1
+          fi
+          echo "No sensitive files found"
+
+  build:
+    name: Build Application
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Build application
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: calculator-build
+          path: build/
+
+  # ---------- CD ----------
+  docker:
+    name: Docker Build and Push
+    needs: [build, security-check]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest .
+
+      - name: Test Docker image
+        run: printf "10 + 5\nq\n" | docker run -i --rm $IMAGE_NAME:latest
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push Docker image
+        run: |
+          docker push $IMAGE_NAME:${{ github.sha }}
+          docker push $IMAGE_NAME:latest
+
+  deploy:
+    name: Deploy
+    needs: docker
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      packages: read
+    steps:
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Pull and run image from GHCR
+        run: |
+          docker pull $IMAGE_NAME:latest
+          printf "20 * 3\nq\n" | docker run -i --rm $IMAGE_NAME:latest

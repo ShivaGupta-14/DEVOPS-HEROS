@@ -7,7 +7,7 @@ terraform-s3-demo/
 |
 |-- README.md
 |-- terraform.tf
-|-- providers.tf
+|-- provider.tf
 |-- variables.tf
 |-- terraform.tfvars
 |-- main.tf

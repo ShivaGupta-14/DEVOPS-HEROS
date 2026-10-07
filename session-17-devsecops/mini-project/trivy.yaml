@@ -1,0 +1,8 @@
+severity:
+  - HIGH
+  - CRITICAL
+scan:
+  scanners:
+    - vuln
+vulnerability:
+  ignore-unfixed: true

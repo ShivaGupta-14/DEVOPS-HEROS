@@ -1,0 +1,5 @@
+[bandit]
+exclude = tests
+# B104: app has to bind 0.0.0.0 inside the container
+# B311: random is only used for demo greetings, not for security
+skips = B104,B311

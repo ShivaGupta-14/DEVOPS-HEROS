@@ -3,6 +3,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: student-pvc
 spec:
+  storageClassName: ""   # use the static PV, not the default storageclass
   accessModes:
     - ReadWriteOnce
   resources:
